@@ -4,9 +4,6 @@ os.environ.setdefault(
     "1"
 )
 
-import numpy
-import tensorflow
-import tensorflow_model_optimization
 import tf_keras
 
 _BN_MOMENTUM = 0.9
@@ -146,7 +143,50 @@ class DACMobileNetV2Encoder(tf_keras.Model):
         )
 
 class DACMobileNetV2Decoder(tf_keras.Model):
-    ...
+    def __init__(self, latentChannels:int, bottleneckConfigs:list, latentSize:int):
+        zIn = tf_keras.Input(
+            shape = (latentSize, latentSize, latentChannels),
+            name  = "z"
+        )
+        blocks, lastChannels = generateBlocks(
+            inputChannels     = latentChannels,
+            bottleneckConfigs = bottleneckConfigs,
+            transposed        = True,
+            prefix            = "DACDecoderBlock"
+        )
+        z = zIn
+        for block in blocks:
+            z = block(z)
+
+        y = tf_keras.layers.Conv2D(
+            3,
+            kernel_size = 3,
+            padding     = "same",
+            name        = "output"
+        )(z)
+        yHat = tf_keras.layers.Activation(
+            "sigmoid",
+            name = "activation",
+
+        )(y)
+
+        super().__init__(
+            inputs  = zIn,
+            outputs = yHat,
+            name   = "DACDecoder"
+        )
+
+class DAC(tf_keras.Model):
+    def __init__(self, encoder:tf_keras.Model, decoder:tf_keras.Model):
+        x = tf_keras.Input(
+            shape = encoder.input_shape[1:],
+            name = "x"
+        )
+        super().__init__(
+            inputs  = x,
+            outputs = decoder(encoder(x)),
+            name    = "DAC"
+        )
 
 def generateBlocks(inputChannels:int, bottleneckConfigs:list, transposed:bool, prefix:str) -> tuple:
     blocks = []

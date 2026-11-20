@@ -29,11 +29,11 @@ class InvertedResidualBlock:
                 tf_keras.layers.BatchNormalization(
                     momentum = _BN_MOMENTUM,
                     epsilon  = _BN_EPSILON,
-                    name     = f"{name}BNExpansion"
+                    name     = f"{name}ExpansionBatchNorm"
                 ),
                 tf_keras.layers.ReLU(
                     6.0,
-                    name = f"{name}ReLUExpansion"
+                    name = f"{name}ExpansionReLU"
                 )
             ])
 
@@ -101,7 +101,66 @@ class InvertedResidualBlock:
             return out
 
 class DACMobileNetV2Encoder(tf_keras.Model):
-    ...
+    def __init__(self, latentChannels:int, bottleneckConfigs:list, stemChannels:int, inputShape:tuple):
+        x = tf_keras.Input(
+            shape = inputShape,
+            name  = "x"
+        )
+
+        z = tf_keras.layers.Conv2D(
+            stemChannels,
+            kernel_size = 3,
+            padding     = "same",
+            use_bias    = False,
+            name = "StemConv2D"
+        )(x)
+        z = tf_keras.layers.BatchNormalization(
+            momentum = _BN_MOMENTUM,
+            epsilon  = _BN_EPSILON,
+            name     = "StemBatchNorm"
+        )(z)
+        z = tf_keras.layers.ReLU(
+            6.0,
+            name = "StemReLU"
+        )(z)
+
+        blocks, lastChannels = generateBlocks(
+            inputChannels      = stemChannels,
+            bottleneckConfigs = bottleneckConfigs,
+            transposed        = False,
+            prefix            = "DACEncoderBlock"
+        )
+        for block in blocks:
+            z = block(z)
+
+        z = tf_keras.layers.Conv2D(
+            latentChannels,
+            kernel_size = 1,
+            name = "latent"
+        )(z)
+
+        super().__init__(
+            inputs  = x,
+            outputs = z,
+            name    = "DACEncoder"
+        )
 
 class DACMobileNetV2Decoder(tf_keras.Model):
     ...
+
+def generateBlocks(inputChannels:int, bottleneckConfigs:list, transposed:bool, prefix:str) -> tuple:
+    blocks = []
+    for expansionFactor, outputChannels, repeats, stride in bottleneckConfigs:
+        for i in range(repeats):
+            blocks.append(
+                InvertedResidualBlock(
+                    inputChannels   = inputChannels,
+                    outputChannels  = outputChannels,
+                    expansionFactor = expansionFactor,
+                    stride          = stride if i == 0 else 1,
+                    transposed      = transposed,
+                    name            = f"{prefix}{len(blocks)}"
+                )
+            )
+            inputChannels = outputChannels
+    return blocks, inputChannels

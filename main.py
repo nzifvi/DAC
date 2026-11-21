@@ -24,3 +24,9 @@ dac = DAC(
     stemChannels        = 32
 )
 
+from Auxiliaries import Visualisations
+
+Visualisations.drawArchitecture(
+    model  = dac,
+    outDir = "/home/ben/PycharmProjects/DAC/"
+)

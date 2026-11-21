@@ -52,7 +52,7 @@ class InvertedResidualBlock:
             layers.extend([
                 tf_keras.layers.DepthwiseConv2D(
                     3,
-                    stride   = stride,
+                    strides   = stride,
                     padding  = "same",
                     use_bias = False,
                     name     = f"{name}DepthwiseConv2d"
@@ -97,110 +97,100 @@ class InvertedResidualBlock:
         else:
             return out
 
-class DACMobileNetV2Encoder(tf_keras.Model):
-    def __init__(self, latentChannels:int, bottleneckConfigs:list, stemChannels:int, inputShape:tuple):
+class DAC(tf_keras.Model):
+    def __init__(self, opticalMarkerAmount:int, inputShape:tuple, widthMultiplier:float, encoderSettings:list, decoderSettings, stemChannels:int):
+        def width(channels):
+            return makeDivisible(
+                value   = channels * widthMultiplier,
+                divisor = 8
+            )
+
         x = tf_keras.Input(
             shape = inputShape,
             name  = "x"
         )
 
         z = tf_keras.layers.Conv2D(
-            stemChannels,
+            width(stemChannels),
             kernel_size = 3,
+            strides     = 2,
             padding     = "same",
             use_bias    = False,
-            name = "StemConv2D"
+            name        = "stemConv2D"
         )(x)
         z = tf_keras.layers.BatchNormalization(
             momentum = _BN_MOMENTUM,
             epsilon  = _BN_EPSILON,
-            name     = "StemBatchNorm"
+            name     = "stemBatchNorm"
         )(z)
         z = tf_keras.layers.ReLU(
             6.0,
-            name = "StemReLU"
+            name = "stemReLU"
         )(z)
+        channels = width(stemChannels)
 
-        blocks, lastChannels = generateBlocks(
-            inputChannels      = stemChannels,
-            bottleneckConfigs = bottleneckConfigs,
-            transposed        = False,
-            prefix            = "DACEncoderBlock"
-        )
-        for block in blocks:
-            z = block(z)
+        skips = {}
+        index = 0
+        for expansionFactor, outputChannels, repeats, stride in encoderSettings:
+            for i in range(repeats):
+                block = InvertedResidualBlock(
+                    inputChannels   = channels,
+                    outputChannels  = width(outputChannels),
+                    expansionFactor = expansionFactor,
+                    stride          = stride if i == 0 else 1,
+                    name            = f"DACEncoderBlock{index}",
+                    transposed      = False
+                )
+                z = block(z)
+                channels = width(outputChannels)
+                index += 1
+            skips[z.shape[1]] = z
 
-        z = tf_keras.layers.Conv2D(
-            latentChannels,
+        index = 0
+        for expansionFactor, outputChannels, repeats, stride in decoderSettings:
+            for i in range(repeats):
+                upsample = i == 0 and stride == 2
+                block = InvertedResidualBlock(
+                    inputChannels   = channels,
+                    outputChannels  = width(outputChannels),
+                    expansionFactor = expansionFactor,
+                    stride          = 2 if upsample else 1,
+                    transposed      = True,
+                    name            = f"DACDecoderBlock{index}",
+                )
+                z = block(z)
+                channels = width(outputChannels)
+                if upsample and z.shape[1] in skips:
+                    skip = skips[z.shape[1]]
+                    if skip.shape[-1] != channels:
+                        skip = tf_keras.layers.Conv2D(
+                            channels,
+                            kernel_size = 1,
+                            name        = f"DACDecoderSkipProjection{index}"
+                        )(skip)
+                    z = tf_keras.layers.Add(
+                        name = f"DACDecoderSkip{index}"
+                    )([z, skip])
+                index += 1
+
+        heatmaps = tf_keras.layers.Conv2D(
+            opticalMarkerAmount,
             kernel_size = 1,
-            name = "latent"
+            name = "opticalMarkerHeatmaps"
+        )(z)
+        depths   = tf_keras.layers.Conv2D(
+            opticalMarkerAmount,
+            kernel_size = 1,
+            name = "opticalMarkerDepths"
         )(z)
 
         super().__init__(
             inputs  = x,
-            outputs = z,
-            name    = "DACEncoder"
-        )
-
-class DACMobileNetV2Decoder(tf_keras.Model):
-    def __init__(self, latentChannels:int, bottleneckConfigs:list, latentSize:int):
-        zIn = tf_keras.Input(
-            shape = (latentSize, latentSize, latentChannels),
-            name  = "z"
-        )
-        blocks, lastChannels = generateBlocks(
-            inputChannels     = latentChannels,
-            bottleneckConfigs = bottleneckConfigs,
-            transposed        = True,
-            prefix            = "DACDecoderBlock"
-        )
-        z = zIn
-        for block in blocks:
-            z = block(z)
-
-        y = tf_keras.layers.Conv2D(
-            3,
-            kernel_size = 3,
-            padding     = "same",
-            name        = "output"
-        )(z)
-        yHat = tf_keras.layers.Activation(
-            "sigmoid",
-            name = "activation",
-
-        )(y)
-
-        super().__init__(
-            inputs  = zIn,
-            outputs = yHat,
-            name   = "DACDecoder"
-        )
-
-class DAC(tf_keras.Model):
-    def __init__(self, encoder:tf_keras.Model, decoder:tf_keras.Model):
-        x = tf_keras.Input(
-            shape = encoder.input_shape[1:],
-            name = "x"
-        )
-        super().__init__(
-            inputs  = x,
-            outputs = decoder(encoder(x)),
+            outputs = [heatmaps, depths],
             name    = "DAC"
         )
 
-def generateBlocks(inputChannels:int, bottleneckConfigs:list, transposed:bool, prefix:str) -> tuple:
-    blocks = []
-    for expansionFactor, outputChannels, repeats, stride in bottleneckConfigs:
-        for i in range(repeats):
-            blocks.append(
-                InvertedResidualBlock(
-                    inputChannels   = inputChannels,
-                    outputChannels  = outputChannels,
-                    expansionFactor = expansionFactor,
-                    stride          = stride if i == 0 else 1,
-                    transposed      = transposed,
-                    name            = f"{prefix}{len(blocks)}"
-                )
-            )
-            inputChannels = outputChannels
-    return blocks, inputChannels
+def makeDivisible(value:float, divisor:int) -> int:
+    rounded = max(divisor, int(value + divisor / 2) // divisor * divisor)
+    return rounded + divisor if rounded < 0.9 * value else rounded
+

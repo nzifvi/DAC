@@ -1,4 +1,4 @@
-from DAC import DAC, DACMobileNetV2Decoder, DACMobileNetV2Encoder
+from DAC import DAC
 
 _ENCODER_CONFIGS = [
     (1, 16, 1, 1),
@@ -14,19 +14,13 @@ _DECODER_CONFIGS = [
     (6, 16, 1, 2)
 ]
 
-encoder = DACMobileNetV2Encoder(
-    latentChannels    = 16,
-    bottleneckConfigs = _ENCODER_CONFIGS,
-    stemChannels      = 32,
-    inputShape        = (256, 256)
-),
-decoder = DACMobileNetV2Decoder(
-    latentChannels    = 16,
-    bottleneckConfigs = _DECODER_CONFIGS,
-    latentSize        = 4
-)
+
 dac = DAC(
-    encoder = encoder,
-    decoder = decoder,
+    opticalMarkerAmount = 12,
+    inputShape          = (256, 256, 1),
+    widthMultiplier     = 0.5,
+    encoderSettings     = _ENCODER_CONFIGS,
+    decoderSettings     = _DECODER_CONFIGS,
+    stemChannels        = 32
 )
 

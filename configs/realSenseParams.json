@@ -1,0 +1,6 @@
+{
+  "imageShape"          : [480, 270],
+  "recordedColourShape" : [480, 270],
+  "recordedDepthShape"  : [480, 270],
+  "recordedFPS"         : 30
+}

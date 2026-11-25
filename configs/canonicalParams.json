@@ -1,0 +1,6 @@
+{
+  "canonicalFOV"       : 80,
+  "canonicalImageSize" : [256, 256],
+  "canonicalGridSize"  : [128, 128],
+
+}

@@ -96,8 +96,7 @@ def mergeSessions(root=Path("dataset"), unified=Path("dataset_unified"), pattern
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge recording sessions into one unified session for the DAC.")
     parser.add_argument("--list", action="store_true", help="only list the matching sessions and their indices")
-    parser.add_argument("--order", type=int, nargs="+", default=None,
-                        help="indices to merge, in order (default: every match, in name order)")
+    parser.add_argument("--order", type=int, nargs="+", default=None, help="indices to merge, in order (default: every match, in name order)")
     parser.add_argument("--pattern", default=r"session_\d{8}_\d{6}", help="regex for session folder names")
     parser.add_argument("--root", type=Path, default=Path("dataset"), help="folder holding the session folders")
     parser.add_argument("--out", type=Path, default=Path("dataset_unified"), help="the unified session folder to create")

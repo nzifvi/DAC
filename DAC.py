@@ -78,7 +78,9 @@ class InvertedResidualBlock:
                 name        = f"{name}Projection"
             ),
             tf_keras.layers.BatchNormalization(
-                name = f"{name}ProjectionBatchNorm"
+                momentum = _BN_MOMENTUM,
+                epsilon  = _BN_EPSILON,
+                name     = f"{name}ProjectionBatchNorm"
             )
         ])
 
@@ -98,7 +100,7 @@ class InvertedResidualBlock:
             return out
 
 class DAC(tf_keras.Model):
-    def __init__(self, opticalMarkerAmount:int, inputShape:tuple, widthMultiplier:float, encoderSettings:list, decoderSettings, stemChannels:int):
+    def __init__(self, fieldChannels:int, inputShape:tuple, widthMultiplier:float, encoderSettings:list, decoderSettings, stemChannels:int):
         def width(channels):
             return makeDivisible(
                 value   = channels * widthMultiplier,
@@ -173,20 +175,19 @@ class DAC(tf_keras.Model):
                     )([z, skip])
                 index += 1
 
-        heatmaps = tf_keras.layers.Conv2D(
-            opticalMarkerAmount,
+        field = tf_keras.layers.Conv2D(
+            fieldChannels,
             kernel_size = 1,
-            name = "opticalMarkerHeatmaps"
+            name        = "displacementFieldConv2D"
         )(z)
-        depths   = tf_keras.layers.Conv2D(
-            opticalMarkerAmount,
-            kernel_size = 1,
-            name = "opticalMarkerDepths"
-        )(z)
+        field = tf_keras.layers.Activation(
+            "tanh",
+            name = "displacementField"
+        )(field)
 
         super().__init__(
             inputs  = x,
-            outputs = [heatmaps, depths],
+            outputs = field,
             name    = "DAC"
         )
 

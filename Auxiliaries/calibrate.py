@@ -4,11 +4,14 @@ import json
 from pathlib import Path
 import cv2
 import numpy
+import time
 
 def _loadParams(name:str) -> dict:
     with open(os.path.join("../configs/", name + ".json"), "r") as f:
         params = json.load(f)
         return params
+
+def _saveParams(name:str, params:dict)
 
 class RealSenseCamera:
     def __init__(self, realSenseParams, name = "realSense"):
@@ -20,11 +23,24 @@ class RealSenseCamera:
         self._recordedColourShape = tuple(int(dim) for dim in params["recordedColourShape"])
         self._recordedDepthShape  = tuple(int(dim) for dim in params["recordedDepthShape"])
         self._recordedFPS         = int(params["recordedFPS"])
+        self._f                   = tuple(float(dim) for dim in params["f"])
+        self._c                   = tuple(float(dim) for dim in params["c"])
+        self._depthUnitMm         = float(params["depthUnitMm"])
+        self._distortion          = [float(k) for k in params["distortion"]]
+        self._distortionModel     = params["distortionModel"] if params["distortionModel"] != "NAN" else None
 
-    def loadIntrinsics(self, path:str):
-        ...
+        if self._checkCalibration():
+            print("! RealSense Intrinsics uncalibrated. Calibration beginning\n    - Main thread will sleep for 1m. Ensure RealSense camera is plugged in before 1m period ends.")
+            time.sleep(60)
+            intrinsics = self._readIntrinsicsFromDevice()
+            self._save(
+                path = "../configs/" + name + "Params.json",
+            )
 
-    def readIntrinsicsFromDevice(self):
+    def _checkCalibration(self):
+        return not (numpy.isnan(self._f).any() or numpy.isnan(self._c).any())
+
+    def _readIntrinsicsFromDevice(self):
         import pyrealsense2 as rs
 
         pipeline = rs.pipeline()
@@ -50,6 +66,10 @@ class RealSenseCamera:
         finally:
             pipeline.stop()
 
+        w, h = self._imageShape
+        sx, sy = w / intr.width, h / intr.height
+
+    def _save(self, path):
 
 
 class OV5640Camera:

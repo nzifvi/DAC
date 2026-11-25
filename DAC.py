@@ -194,4 +194,3 @@ class DAC(tf_keras.Model):
 def makeDivisible(value:float, divisor:int) -> int:
     rounded = max(divisor, int(value + divisor / 2) // divisor * divisor)
     return rounded + divisor if rounded < 0.9 * value else rounded
-

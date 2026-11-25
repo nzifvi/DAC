@@ -56,7 +56,7 @@ if __name__ == "__main__":
         metrics=["accuracy"]
     )
     tb = tf_k.callbacks.TensorBoard(log_dir=str(RESULTS / "logs"))
-    history = model.fit(x_train, y_train, batch_size=128, epochs=3, validation_split=0.1)
+    history = model.fit(x_train, y_train, batch_size=128, epochs=20, validation_split=0.1)
     floatLoss, floatAcc = model.evaluate(x_test, y_test, verbose=0)
     print(f"float32 test accuracy: {floatAcc:.4f}")
 

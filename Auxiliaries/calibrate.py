@@ -88,13 +88,11 @@ class RealSenseCamera:
 
         self._f               = (intr.fx * sx, intr.fy * sy)
         self._c               = ((intr.ppx + 0.5) * sx - 0.5, (intr.ppy + 0.5) * sy - 0.5)
-        self._depthUnitMm     = depthScale * 1000.0          # the SDK gives metres per raw depth unit
+        self._depthUnitMm     = depthScale * 1000.0
         self._distortion      = [float(k) for k in intr.coeffs]
         self._distortionModel = str(intr.model)
 
     def _save(self) -> None:
-        """Write the intrinsics into configs/<name>Params.json. The file is read first and only these keys
-        change, so the recording settings and any keys of your own stay as they are."""
         params = _loadParams(self._name + "Params")
         params.update({
             "f": list(self._f),

@@ -104,8 +104,20 @@ class RealSenseCamera:
         _saveParams(self._name + "Params", params)
 
 class OV5640Camera:
-    def __init__(self, K, D, maxTheta, rmsPx, imagesUsed = none, name = "ov5640"):
-        ...
+    def __init__(self, name:str = "ov5640"):
+        params = _loadParams(name + "Params")
+        self._name = name
+
+        self._imageShape           = tuple(int(dim) for dim in params["imageShape"])
+        self._checkerboardImages   = str(params["checkerboardImages"])
+        self._checkerboardCorners  = tuple(int(n) for n in params["checkerboardCorners"])
+        self._checkerboardSquareMm = float(params["checkerboardSquareMm"])
+        self._f                    = tuple(float(dim) for dim in params["f"])
+        self._c                    = tuple(float(dim) for dim in params["c"])
+        self._distortion           = [float(k) for k in params["distortion"]]
+        self._maxTheta             = float(params["maxTheta"])
+        self._rmsPx                = float(params["rmsPx"])
+        self._imagesUsed           = _countOrNone(params["imagesUsed"])
 
 class CanonicalCamera:
     def __init__(self, canonicalParams, imageParams):

@@ -6,6 +6,7 @@
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 
 #define CAMERA_ESP32S3_EYE_MODULE
@@ -56,6 +57,44 @@ extern "C" void app_main(void) {
     sensor_t *s = esp_camera_sensor_get();
     camera_sensor_info_t *info = esp_camera_sensor_get_info(&s->id);
 
-    
+    int frames = 0;
+    TickType_t windowStart = xTaskGetTickCount();
+    while(true) {
+        camera_fb_t *fb = esp_camera_fb_get();
+        if (!fb) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+        ++frames;
+        const TickType_t elapsed = xTaskGetTickCount() - windowStart;
+        if (elapsed >= pdMS_TO_TICKS(1000)) {
+            uint8_t lo   = 255;
+            uint8_t hi   = 0;
+            uint32_t sum = 0;
+ 
+            for (size_t i = 0; i < fb->len; ++i) {
+                const uint8_t p = fb->buf[i];
+                if (p < lo) {
+                    lo = p;
+                }
+                if (p > hi) {
+                    hi = p;
+                }
+                sum += p;
+            }
+
+            printf("Image: %u x %u  \n    - %.1f fps\n    - min: %u\n    - mean: %u\n    - max %u\n\n",
+                (unsigned)fb->width,
+                (unsigned)fb->height,
+                frames * 1000.0 / pdTICKS_TO_MS(elapsed),
+                (unsigned)lo,
+                (unsigned)(sum / fb->len),
+                (unsigned)hi
+            );
+            frames = 0;
+            windowStart = xTaskGetTickCount();
+        }
+        esp_camera_fb_return(fb);
+    }
     
 }

@@ -1,3 +1,4 @@
+#include "esp_chip_info.h"
 #include <cstdio>
 #include <cstdint>
 #include "esp_camera.h"
@@ -41,13 +42,20 @@ static camera_config_t make_config() {
 }
 
 extern "C" void app_main(void) {
-    esp_chip_info_t info;
-    esp_chip_info(&info);
-    while (true) {
-        printf("hello");
-
-
-
-        vTaskDelay(pdMS_TO_TICKS(1));
+    printf("Initialising DAC:\n");
+    printf("    - PSRAM heap: %u (bytes)\n", (unsigned)heap_caps_get_total_size(MALLOC_CAP_SPIRAM));
+    
+    camera_config_t cfg = make_config();
+    esp_err_t       err = esp_camera_init(&cfg);
+    if (err != ESP_OK){
+        printf("    ! CAMERA INIT FAILED: %s\n", esp_err_to_name(err));
+        return;
+    } else {
+        printf("    - Camera successfully initialised\n");
     }
+    sensor_t *s = esp_camera_sensor_get();
+    camera_sensor_info_t *info = esp_camera_sensor_get_info(&s->id);
+
+    
+    
 }
